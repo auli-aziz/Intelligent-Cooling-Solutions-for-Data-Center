@@ -6,7 +6,7 @@
 ; R16 --> register used to output to LCD
 main:
 ;------------------------------------------------------------
-    LDI   R17, 0b11111100 ;LDI 0b100 to R17
+    LDI   R17, 0xFF       ;LDI 0b100 to R17
     OUT   DDRD, R17       ;set PD2 for o/p
     ;------------------------------------------------------
     LDI   R17, 0xFF       ;LDI 0b100 to R17
@@ -50,11 +50,38 @@ LED1:
   RJMP continue       ;relative jump to continue
 ;------------------------------------------------------------------
 continue:
-    
+    MOV   R16, R18
+    ANDI  R16, 0xF0     ;mask & extract high-nibble
+    SWAP  R16           ;swap high-nibble with low-nibble 
+    ADD   R16, R23      ;add 48 to byte to get ASCII char 0 to 9
+    MOV   R28, R16      ;store a copy of byte in R28
+    SUBI  R28, 58       ;subtract 58 from R28
+    BRPL  A_F_MSD       ;jump if result is +ve
+l1: RCALL data_wrt      ;display MSD of byte on LCD
+    ;----------------------------------------------------------------
+    MOV   R16, R18
+    ANDI  R16, 0x0F     ;mask & extract low-nibble
+    ADD   R16, R23
+    MOV   R28, R16
+    SUBI  R28, 58
+    BRPL  A_F_LSD
+l2: RCALL data_wrt      ;display LSD of byte on LCD
+    ;------------------------------------------------------
+    RCALL delay_seconds ;delay 0.25s
+    ;------------------------------------------------------
+    LDI   R16, 0xC0     ;force cursor beginning of 2nd line
+    RCALL command_wrt
+    RCALL delay_ms
+    ;------------------------------------------------------
     RJMP  agn      ;go back & get another ADC reading
 ;====================================================================
-
-
+A_F_MSD:
+    ADD   R16, R24      ;add 7 to byte to get ASCII chars A to F
+    RJMP  l1
+;----------------
+A_F_LSD:
+    ADD   R16, R24      ;add 7 to byte to get ASCII chars A to F
+    RJMP  l2
 ;===============================================================
 LCD_init:
     LDI   R16, 0x33     ;init LCD for 4-bit data
