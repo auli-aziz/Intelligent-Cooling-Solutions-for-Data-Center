@@ -6,11 +6,10 @@
 ; R16 --> register used to output to LCD
 main:
 ;------------------------------------------------------------
-    LDI   R17, 0xFF       ;LDI 0b100 to R17
-    OUT   DDRD, R17       ;set PD2 for o/p
-    ;------------------------------------------------------
-    LDI   R17, 0xFF       ;LDI 0b100 to R17
-    OUT   DDRB, R17       ;set PORTB for o/p
+    LDI   R17, 0xFF       ;LDI 0b11111111 to R17
+    OUT   DDRD, R17       ;set PD for output
+    LDI   R17, 0xFF       ;LDI 0b11111111 to R17
+    OUT   DDRB, R17       ;set PORTB for output
     CBI   PORTB, 0        ;EN = 0
     RCALL delay_ms        ;wait for LCD power on
     ;------------------------------------------------------
@@ -18,8 +17,6 @@ main:
     OUT   SPCR, R17       ;enable SPI as slave
     ;--------------------------------------------------
     RCALL LCD_init      ;subroutine to initialize LCD
-    ;--------------------------------------------------
-    ;RCALL disp_msg      ;display message on 1st line
     ;--------------------------------------------------
     LDI   R16, 0xC0     ;cursor beginning of 2nd line
     RCALL command_wrt
@@ -32,143 +29,126 @@ agn:  IN    R18, SPSR       ;store SPSR flag in R18
       SBRS  R18, SPIF       ;wait for byte reception
       RJMP  agn             ;to complete
       ;------------------------------------------------------
-      IN    R18, SPDR       ;i/p byte from data register
+      IN    R18, SPDR       ;input byte from data register
       ;------------------------------------------------------
-      CPI R18, 0x1E     ;compare immediate 1 on R18
-      BRLO LED0         ;branch if lower to LED0
-      CPI R18, 0x1F     ;compare immediate 2 on R18
-      BRGE LED1         ;branch if lower to LED1
-;===============================================================
-LED0:
-  LDI R19, 0b00000000 ;turn off LED on PD2
-  OUT PORTD, R19      ;output R19 on PORTD
-  RJMP continue       ;relative jump to continue
-;------------------------------------------------------------------
-LED1:
-  LDI R19, 0b00001100 ;turn on LED on PD2
-  OUT PORTD, R19      ;output R19 on PORTD
-  RJMP continue       ;relative jump to continue
-;------------------------------------------------------------------
-continue:
-    MOV   R16, R18
-    ANDI  R16, 0xF0     ;mask & extract high-nibble
-    SWAP  R16           ;swap high-nibble with low-nibble 
-    ADD   R16, R23      ;add 48 to byte to get ASCII char 0 to 9
-    MOV   R28, R16      ;store a copy of byte in R28
-    SUBI  R28, 58       ;subtract 58 from R28
-    BRPL  A_F_MSD       ;jump if result is +ve
-l1: RCALL data_wrt      ;display MSD of byte on LCD
+      MOV   R16, R18
+      ANDI  R16, 0xF0     ;mask & extract high-nibble
+      SWAP  R16           ;swap high-nibble with low-nibble 
+      ADD   R16, R23      ;add 48 to byte to get ASCII char 0 to 9
+      MOV   R28, R16      ;store a copy of byte in R28
+      SUBI  R28, 58       ;subtract 58 from R28
+      BRPL  A_F_MSD       ;jump if result is +ve
+l1:   RCALL data_wrt      ;display MSD of byte on LCD
     ;----------------------------------------------------------------
-    MOV   R16, R18
-    ANDI  R16, 0x0F     ;mask & extract low-nibble
-    ADD   R16, R23
-    MOV   R28, R16
-    SUBI  R28, 58
-    BRPL  A_F_LSD
-l2: RCALL data_wrt      ;display LSD of byte on LCD
+      MOV   R16, R18
+      ANDI  R16, 0x0F     ;mask & extract low-nibble
+      ADD   R16, R23
+      MOV   R28, R16
+      SUBI  R28, 58
+      BRPL  A_F_LSD
+l2:   RCALL data_wrt      ;display LSD of byte on LCD
     ;------------------------------------------------------
-    RCALL delay_seconds ;delay 0.25s
+      RCALL delay_seconds ;delay 0.25s
     ;------------------------------------------------------
-    LDI   R16, 0xC0     ;force cursor beginning of 2nd line
-    RCALL command_wrt
-    RCALL delay_ms
+      LDI   R16, 0xC0     ;force cursor beginning of 2nd line
+      RCALL command_wrt
+      RCALL delay_ms
     ;------------------------------------------------------
-    RJMP  agn      ;go back & get another ADC reading
+      RJMP  agn      ;go back & get another ADC reading
 ;====================================================================
 A_F_MSD:
-    ADD   R16, R24      ;add 7 to byte to get ASCII chars A to F
-    RJMP  l1
+      ADD   R16, R24      ;add 7 to byte to get ASCII chars A to F
+      RJMP  l1
 ;----------------
 A_F_LSD:
-    ADD   R16, R24      ;add 7 to byte to get ASCII chars A to F
-    RJMP  l2
+      ADD   R16, R24      ;add 7 to byte to get ASCII chars A to F
+      RJMP  l2
 ;===============================================================
 LCD_init:
-    LDI   R16, 0x33     ;init LCD for 4-bit data
-    RCALL command_wrt   ;send to command register
-    RCALL delay_ms
-    LDI   R16, 0x32     ;init LCD for 4-bit data
-    RCALL command_wrt
-    RCALL delay_ms
-    LDI   R16, 0x28     ;LCD 2 lines, 5x7 matrix
-    RCALL command_wrt
-    RCALL delay_ms
-    LDI   R16, 0x0C     ;disp ON, cursor OFF
-    RCALL command_wrt
-    LDI   R16, 0x01     ;clear LCD
-    RCALL command_wrt
-    RCALL delay_ms
-    LDI   R16, 0x06     ;shift cursor right
-    RCALL command_wrt
-    RET
+      LDI   R16, 0x33     ;init LCD for 4-bit data
+      RCALL command_wrt   ;send to command register
+      RCALL delay_ms
+      LDI   R16, 0x32     ;init LCD for 4-bit data
+      RCALL command_wrt
+      RCALL delay_ms
+      LDI   R16, 0x28     ;LCD 2 lines, 5x7 matrix
+      RCALL command_wrt
+      RCALL delay_ms
+      LDI   R16, 0x0C     ;disp ON, cursor OFF
+      RCALL command_wrt
+      LDI   R16, 0x01     ;clear LCD
+      RCALL command_wrt
+      RCALL delay_ms
+      LDI   R16, 0x06     ;shift cursor right
+      RCALL command_wrt
+      RET
 ;====================================================================
 command_wrt:
-    MOV   R27, R16
-    ANDI  R27, 0xF0     ;mask low nibble & keep high nibble
-    OUT   PORTD, R27    ;o/p high nibble to port D
-    CBI   PORTB, 1      ;RS = 0 for command
-    SBI   PORTB, 0      ;EN = 1
-    RCALL delay_short   ;widen EN pulse
-    CBI   PORTB, 0      ;EN = 0 for H-to-L pulse
-    RCALL delay_us      ;delay 100us
+      MOV   R27, R16
+      ANDI  R27, 0xF0     ;mask low nibble & keep high nibble
+      OUT   PORTD, R27    ;output high nibble to port D
+      CBI   PORTB, 1      ;RS = 0 for command
+      SBI   PORTB, 0      ;EN = 1
+      RCALL delay_short   ;widen EN pulse
+      CBI   PORTB, 0      ;EN = 0 for H-to-L pulse
+      RCALL delay_us      ;delay 100us
     ;-------------------------------------------------------
-    MOV   R27, R16
-    SWAP  R27           ;swap nibbles
-    ANDI  R27, 0xF0     ;mask low nibble & keep high nibble
-    OUT   PORTD, R27    ;o/p high nibble to port D
-    SBI   PORTB, 0      ;EN = 1
-    RCALL delay_short   ;widen EN pulse
-    CBI   PORTB, 0      ;EN = 0 for H-to-L pulse
-    RCALL delay_us      ;delay 100us
-    RET
+      MOV   R27, R16
+      SWAP  R27           ;swap nibbles
+      ANDI  R27, 0xF0     ;mask low nibble & keep high nibble
+      OUT   PORTD, R27    ;output high nibble to port D
+      SBI   PORTB, 0      ;EN = 1
+      RCALL delay_short   ;widen EN pulse
+      CBI   PORTB, 0      ;EN = 0 for H-to-L pulse
+      RCALL delay_us      ;delay 100us
+      RET
 data_wrt:
-    MOV   R27, R16
-    ANDI  R27, 0xF0     ;mask low nibble & keep high nibble
-    OUT   PORTD, R27    ;o/p high nibble to port D
-    SBI   PORTB, 1      ;RS = 1 for data
-    SBI   PORTB, 0      ;EN = 1
-    RCALL delay_short   ;make wide EN pulse
-    CBI   PORTB, 0      ;EN = 0 for H-to-L pulse
-    RCALL delay_us      ;delay 100us
+      MOV   R27, R16
+      ANDI  R27, 0xF0     ;mask low nibble & keep high nibble
+      OUT   PORTD, R27    ;output high nibble to port D
+      SBI   PORTB, 1      ;RS = 1 for data
+      SBI   PORTB, 0      ;EN = 1
+      RCALL delay_short   ;make wide EN pulse
+      CBI   PORTB, 0      ;EN = 0 for H-to-L pulse
+      RCALL delay_us      ;delay 100us
     ;-------------------------------------------------------
-    MOV   R27, R16
-    SWAP  R27           ;swap nibbles
-    ANDI  R27, 0xF0     ;mask low nibble & keep high nibble
-    OUT   PORTD, R27    ;o/p high nibble to port D
-    SBI   PORTB, 0      ;EN = 1
-    RCALL delay_short   ;widen EN pulse
-    CBI   PORTB, 0      ;EN = 0 for H-to-L pulse
-    RCALL delay_us      ;delay in micro seconds
-    RET
+      MOV   R27, R16
+      SWAP  R27           ;swap nibbles
+      ANDI  R27, 0xF0     ;mask low nibble & keep high nibble
+      OUT   PORTD, R27    ;output high nibble to port D
+      SBI   PORTB, 0      ;EN = 1
+      RCALL delay_short   ;widen EN pulse
+      CBI   PORTB, 0      ;EN = 0 for H-to-L pulse
+      RCALL delay_us      ;delay in microseconds
+      RET
 ;====================================================================
 delay_short:            ;very short delay, 3 cycles
-    NOP
-    NOP
-    RET
+      NOP
+      NOP
+      RET
 ;--------------------------------------------------
 delay_us:               ;delay approximately 100us
-    LDI   R20, 90
-l3: RCALL delay_short
-    DEC   R20
-    BRNE  l3
-    RET
+      LDI   R20, 90
+l3:   RCALL delay_short
+      DEC   R20
+      BRNE  l3
+      RET
 ;--------------------------------------------------
 delay_ms:               ;delay approximately 20ms
-    LDI   R21, 40
-l4: RCALL delay_us
-    DEC   R21
-    BRNE  l4
-    RET
+      LDI   R21, 40
+l4:   RCALL delay_us
+      DEC   R21
+      BRNE  l4
+      RET
 ;----------------------------------------------------------------
 delay_seconds:          ;nested loop subroutine (max delay 3.11s)
-    LDI   R20, 255      ;outer loop counter 
-l5: LDI   R21, 255      ;mid loop counter
-l6: LDI   R22, 20       ;inner loop counter to give 0.25s delay
-l7: DEC   R22           ;decrement inner loop
-    BRNE  l7            ;loop if not zero
-    DEC   R21           ;decrement mid loop
-    BRNE  l6            ;loop if not zero
-    DEC   R20           ;decrement outer loop
-    BRNE  l5            ;loop if not zero
-    RET                 ;return to caller
-
+      LDI   R20, 255      ;outer loop counter 
+l5:   LDI   R21, 255      ;mid loop counter
+l6:   LDI   R22, 20       ;inner loop counter to give 0.25s delay
+l7:   DEC   R22           ;decrement inner loop
+      BRNE  l7            ;loop if not zero
+      DEC   R21           ;decrement mid loop
+      BRNE  l6            ;loop if not zero
+      DEC   R20           ;decrement outer loop
+      BRNE  l5            ;loop if not zero
+      RET                 ;return to caller

@@ -16,8 +16,12 @@ main:
       ;--------------------------------------------------------
       LDI   R17, (1<<SPE)|(1<<MSTR)|(1<<SPI2X)|(1<<SPR0)
       OUT   SPCR, R17       ;enable SPI as master, fsck=fosc/8, SPI mode 0
+      ;--------------------------------------------------------
+      LDI   R17, 0xFF       ;LDI 0b11111111 to R17
+      OUT   DDRD, R17       ;set PORTD for o/p (LED control)
+      ;--------------------------------------------------------
 ;=================================================================
-agn:RCALL delay_2s      ;wait 2s for DHT11 to get ready
+agn: RCALL delay_2s      ;wait 2s for DHT11 to get ready
 ;=================================================================
 ;start_signal
 ;------------
@@ -38,7 +42,7 @@ w3: SBIC  PINC, 0       ;skip next jmp if A0 0 --
 ;-----------------------------------------------------------------
     RCALL DHT11_reading ;read humidity (1st byte ignored)
     RCALL DHT11_reading ;read humidity (2nd byte ignored)
-    RCALL DHT11_reading ;read humidity (3rd byte of 40-bit data)
+    RCALL DHT11_reading ;read temperature (3rd byte of 40-bit data)
 ;==============================================================
 send: CBI   PORTB, SS       ;enable slave device
       OUT   SPDR, R18       ;transmit byte to slave
@@ -49,6 +53,18 @@ loop: IN    R19, SPSR       ;store the value of SPSR in R19
       ;--------------------------------------------------------
       SBI   PORTB, SS       ;disable slave device
       ;--------------------------------------------------------
+      ; Control LED based on received temperature data
+      CPI   R18, 30         ;compare received temperature with 30
+      BRLO  LED_OFF         ;branch if lower to LED_OFF
+      ;--------------------------------------------------------
+LED_ON:
+      SBI   PORTD, 2        ;turn on LED on PD2
+      RJMP  CONTINUE
+      ;--------------------------------------------------------
+LED_OFF:
+      CBI   PORTD, 2        ;turn off LED on PD2
+      ;--------------------------------------------------------
+CONTINUE:
       RCALL delay_2s        ;delay
       RJMP  agn             ;repeat transmission
 ;=================================================================
@@ -94,7 +110,7 @@ l2: IN    R20, TIFR0      ;get TIFR0 byte & check
     ;---------------------------------------------------------
     LDI   R20, (1<<OCF0A) ;LDI (1 shifted left by OCF0A) into register R20
     OUT   TIFR0, R20      ;clear OCF0 flag
-    RET                   ;return to terminale call
+    RET                   ;return to terminal call
 ;=================================================================
 DHT11_reading:          
     LDI   R17, 8        ;set counter for receiving 8 bits
@@ -108,12 +124,11 @@ w4: SBIS  PINC, 0       ;skip jmp if A0 is 1 --
     RJMP  skp           ;else, received bit=0, jump to skp
     SEC                 ;set carry flag (C=1)
     ROL   R18           ;shift in 1 into LSB data register
-    RJMP  w5            ;jump & wait for low pulse
-skp:LSL   R18           ;shift in 0 into LSB data register
-    ;-------------------------------------------------------
-w5: SBIC  PINC, 0       ;skip jmp if A0 is 0 --
-    RJMP  w5            ;wait for DHT11 low pulse
-    ;-------------------------------------------------------
-    DEC   R17           ;decrement counter
-    BRNE  w4            ;go back & detect next bit
-    RET                 ;return to calling subroutine
+    RJMP  w5            ;jump & wait for next bit
+skp: CLC                 ;clear carry flag (C=0)
+    ROL   R18           ;shift in 0 into LSB data register
+w5: SBIC  PINC, 0       ;skip jmp if A0 0 --
+    RJMP  w5            ;wait for end of data bit pulse
+    DEC   R17           ;decrement bit counter
+    BRNE  w4            ;repeat till all bits received
+    RET                 ;return to caller
