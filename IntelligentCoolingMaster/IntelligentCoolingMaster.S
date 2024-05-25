@@ -54,14 +54,26 @@ loop: IN    R19, SPSR       ;store the value of SPSR in R19
       SBI   PORTB, SS       ;disable slave device
       ;--------------------------------------------------------
       ; Control LED based on received temperature data
+      CPI   R18, 20         ;compare received temperature with 20
+      BRLO  LED_COLD        ;branch if lower to LED_COLD
       CPI   R18, 30         ;compare received temperature with 30
-      BRLO  LED_OFF         ;branch if lower to LED_OFF
+      BRLO  LED_NORMAL      ;branch if lower to LED_NORMAL
       ;--------------------------------------------------------
-LED_ON:
-      SBI   PORTD, 2        ;turn on LED on PD2
+LED_HOT:
+      SBI   PORTD, 2        ;turn on LED on PD2 (hot condition)
+      CBI   PORTD, 1        ;turn off LED on PD1
+      CBI   PORTD, 0        ;turn off LED on PD0
       RJMP  CONTINUE
       ;--------------------------------------------------------
-LED_OFF:
+LED_NORMAL:
+      SBI   PORTD, 1        ;turn on LED on PD1 (normal condition)
+      CBI   PORTD, 2        ;turn off LED on PD2
+      CBI   PORTD, 0        ;turn off LED on PD0
+      RJMP  CONTINUE
+      ;--------------------------------------------------------
+LED_COLD:
+      SBI   PORTD, 0        ;turn on LED on PD0 (cold condition)
+      CBI   PORTD, 1        ;turn off LED on PD1
       CBI   PORTD, 2        ;turn off LED on PD2
       ;--------------------------------------------------------
 CONTINUE:
