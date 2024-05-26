@@ -81,9 +81,10 @@ LED_COLD:
       CBI   PORTD, 1        ;turn off LED on PD1
       CBI   PORTD, 2        ;turn off LED on PD2
       CBI   PORTD, 3        ;turn off Fan on PD3
+      RJMP  CONTINUE
       ;--------------------------------------------------------
 CONTINUE:
-      CPI   R16, 1
+      CPI   R16, 0
       BREQ  blink
       RCALL delay_2s        ;delay
       RJMP  agn             ;repeat transmission
