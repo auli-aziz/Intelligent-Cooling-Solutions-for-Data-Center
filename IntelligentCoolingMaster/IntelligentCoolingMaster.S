@@ -60,25 +60,58 @@ loop: IN    R19, SPSR       ;store the value of SPSR in R19
       BRLO  LED_NORMAL      ;branch if lower to LED_NORMAL
       ;--------------------------------------------------------
 LED_HOT:
-      SBI   PORTD, 2        ;turn on LED on PD2 (hot condition)
-      CBI   PORTD, 1        ;turn off LED on PD1
+      LDI   R16, 1
       CBI   PORTD, 0        ;turn off LED on PD0
+      CBI   PORTD, 1        ;turn off LED on PD1
+      SBI   PORTD, 2        ;turn on LED on PD2 (hot condition)
+      SBI   PORTD, 3        ;turn on Fan on PD3
       RJMP  CONTINUE
       ;--------------------------------------------------------
 LED_NORMAL:
+      LDI   R16, 2
+      CBI   PORTD, 0        ;turn off LED on PD0
       SBI   PORTD, 1        ;turn on LED on PD1 (normal condition)
       CBI   PORTD, 2        ;turn off LED on PD2
-      CBI   PORTD, 0        ;turn off LED on PD0
+      CBI   PORTD, 3        ;turn off Fan on PD3
       RJMP  CONTINUE
       ;--------------------------------------------------------
 LED_COLD:
+      LDI   R16, 3
       SBI   PORTD, 0        ;turn on LED on PD0 (cold condition)
       CBI   PORTD, 1        ;turn off LED on PD1
       CBI   PORTD, 2        ;turn off LED on PD2
+      CBI   PORTD, 3        ;turn off Fan on PD3
       ;--------------------------------------------------------
 CONTINUE:
+      CPI   R16, 1
+      BREQ  blink
       RCALL delay_2s        ;delay
       RJMP  agn             ;repeat transmission
+;=================================================================
+blink:
+      SBI   PORTD, 2
+      RCALL delay_timer1
+      CBI   PORTD, 2
+      RCALL delay_timer1
+      SBI   PORTD, 2
+      RCALL delay_timer1
+      CBI   PORTD, 2
+      RCALL delay_timer1
+      SBI   PORTD, 2
+      RCALL delay_timer1
+      CBI   PORTD, 2
+      RCALL delay_timer1
+      SBI   PORTD, 2
+      RCALL delay_timer1
+      CBI   PORTD, 2
+      RCALL delay_timer1
+      SBI   PORTD, 2
+      RCALL delay_timer1
+      CBI   PORTD, 2
+      RCALL delay_timer1
+      SBI   PORTD, 2
+      SUBI  R16, 1
+      RET
 ;=================================================================
 delay_20ms:             ;delay 20ms
     LDI   R21, 255      ;LDI 255 into R21
@@ -123,7 +156,31 @@ l2: IN    R20, TIFR0      ;get TIFR0 byte & check
     LDI   R20, (1<<OCF0A) ;LDI (1 shifted left by OCF0A) into register R20
     OUT   TIFR0, R20      ;clear OCF0 flag
     RET                   ;return to terminal call
-;=================================================================
+;-----------------------------------------------------------------
+delay_timer1:             ;0.35 sec delay via timer1
+    ;-------------------------------------------------------
+.EQU value, 60067         ;value to give 0.35 sec delay
+    LDI   R20, hi8(value) ;load high byte of value into R20
+    STS   TCNT1H, R20     ;store R20 value into high byte of TCNT1
+    LDI   R20, lo8(value) ;load low byte of value into R20
+    STS   TCNT1L, R20     ;initialize counter TCNT1 = value
+    ;-------------------------------------------------------
+    LDI   R20, 0b00000000 ;configure TCCR1A for normal operation
+    STS   TCCR1A, R20     ;store R20 value into TCCR1A
+    LDI   R20, 0b00000101 ;configure TCCR1B for prescaler of 1024
+    STS   TCCR1B, R20     ;normal mode, prescaler = 1024
+    ;-------------------------------------------------------
+l9: IN    R20, TIFR1      ;get TIFR1 byte & check
+    SBRS  R20, TOV1       ;if TOV1=1, skip next instruction
+    RJMP  l9              ;else, loop back & check TOV1 flag
+    ;-------------------------------------------------------
+    LDI   R20, 1<<TOV1    ;set TOV1 flag in TIFR1 register 
+    OUT   TIFR1, R20      ;clear TOV1 flag
+    ;-------------------------------------------------------
+    LDI   R20, 0b00000000 ;stop Timer/Counter1
+    STS   TCCR1B, R20     ;store R20 value into TCCR1B
+    RET                   ;return from subroutine
+;===============================================================
 DHT11_reading:          
     LDI   R17, 8        ;set counter for receiving 8 bits
     CLR   R18           ;clear data register

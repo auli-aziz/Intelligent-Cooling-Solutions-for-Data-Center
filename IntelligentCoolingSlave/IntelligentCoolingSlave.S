@@ -8,7 +8,6 @@ main:
 ;------------------------------------------------------------
     LDI   R17, 0xFF       ;LDI 0b11111111 to R17
     OUT   DDRD, R17       ;set PD for output
-    LDI   R17, 0xFF       ;LDI 0b11111111 to R17
     OUT   DDRB, R17       ;set PORTB for output
     CBI   PORTB, 0        ;EN = 0
     RCALL delay_ms        ;wait for LCD power on
@@ -18,12 +17,13 @@ main:
     ;--------------------------------------------------
     RCALL LCD_init      ;subroutine to initialize LCD
     ;--------------------------------------------------
+    RCALL disp_msg
+    ;--------------------------------------------------
     LDI   R16, 0xC0     ;cursor beginning of 2nd line
     RCALL command_wrt
     RCALL delay_ms
     ;--------------------------------------------------
     LDI   R23, 48       ;constants used to get ASCII values
-    LDI   R24, 7        ;for chars 0-->9 & A-->F
 ;============================================================
 agn:  IN    R18, SPSR       ;store SPSR flag in R18
       SBRS  R18, SPIF       ;wait for byte reception
@@ -31,38 +31,51 @@ agn:  IN    R18, SPSR       ;store SPSR flag in R18
       ;------------------------------------------------------
       IN    R18, SPDR       ;input byte from data register
       ;------------------------------------------------------
+      CLR   R24           ;set counter1, initail value 0
+      CLR   R25           ;set counter2, initail value 0
+      ;------------------------------------------------------
+      CPI   R18, 228
+      BRPL  adjust
+      ;------------------------------------------------------
+l1:   CPI   R18, 100  
+Ret:  BRMI  l2
+      INC   R24
+      SUBI  R18, 100
+      RJMP  l1
+      ;------------------------------------------------------
+l2:   CPI   R18, 10
+      BRMI  dsp
+      INC   R25
+      SUBI  R18, 10
+      RJMP  l2
+      ;------------------------------------------------------
+dsp:  PUSH  R18
+      ADD   R24, R23
+      MOV   R18, R24
       MOV   R16, R18
-      ANDI  R16, 0xF0     ;mask & extract high-nibble
-      SWAP  R16           ;swap high-nibble with low-nibble 
-      ADD   R16, R23      ;add 48 to byte to get ASCII char 0 to 9
-      MOV   R28, R16      ;store a copy of byte in R28
-      SUBI  R28, 58       ;subtract 58 from R28
-      BRPL  A_F_MSD       ;jump if result is +ve
-l1:   RCALL data_wrt      ;display MSD of byte on LCD
-    ;----------------------------------------------------------------
+      RCALL data_wrt
+      ;------------------------------------------------------
+      MOV   R18, R25
+      ADD   R18, R23
       MOV   R16, R18
-      ANDI  R16, 0x0F     ;mask & extract low-nibble
-      ADD   R16, R23
-      MOV   R28, R16
-      SUBI  R28, 58
-      BRPL  A_F_LSD
-l2:   RCALL data_wrt      ;display LSD of byte on LCD
-    ;------------------------------------------------------
-      RCALL delay_seconds ;delay 0.25s
-    ;------------------------------------------------------
+      RCALL data_wrt
+      ;------------------------------------------------------
+      POP   R18
+      ADD   R18, R23
+      MOV   R16, R18
+      RCALL data_wrt
+      ;------------------------------------------------------
+      RCALL   delay_sec
+      ;------------------------------------------------------
       LDI   R16, 0xC0     ;force cursor beginning of 2nd line
       RCALL command_wrt
       RCALL delay_ms
-    ;------------------------------------------------------
-      RJMP  agn      ;go back & get another ADC reading
-;====================================================================
-A_F_MSD:
-      ADD   R16, R24      ;add 7 to byte to get ASCII chars A to F
-      RJMP  l1
-;----------------
-A_F_LSD:
-      ADD   R16, R24      ;add 7 to byte to get ASCII chars A to F
-      RJMP  l2
+      ;------------------------------------------------------
+      RJMP  agn      ;go back
+;============================================================
+adjust:
+    CPI   R18, 128      ;compare R16 with 128 when R16 >= 228
+    RJMP  Ret
 ;===============================================================
 LCD_init:
       LDI   R16, 0x33     ;init LCD for 4-bit data
@@ -102,6 +115,7 @@ command_wrt:
       CBI   PORTB, 0      ;EN = 0 for H-to-L pulse
       RCALL delay_us      ;delay 100us
       RET
+;====================================================================
 data_wrt:
       MOV   R27, R16
       ANDI  R27, 0xF0     ;mask low nibble & keep high nibble
@@ -122,6 +136,18 @@ data_wrt:
       RCALL delay_us      ;delay in microseconds
       RET
 ;====================================================================
+disp_msg:
+    LDI   R31, hi8(msg)
+    LDI   R30, lo8(msg) ;Z points to string msg
+l8: LPM   R16, Z+       ;load character of msg into R16
+    CPI   R16, 0        ;check if R16=0 (end of string)
+    BREQ  ext           ;if yes, exit
+    RCALL data_wrt      ;if no, display character on LCD
+    RJMP  l8            ;loop back & get next character
+ext:RET
+;--------------------------------------------------------------------
+msg: .ascii "Current temp (C)"
+;====================================================================
 delay_short:            ;very short delay, 3 cycles
       NOP
       NOP
@@ -141,7 +167,7 @@ l4:   RCALL delay_us
       BRNE  l4
       RET
 ;----------------------------------------------------------------
-delay_seconds:          ;nested loop subroutine (max delay 3.11s)
+delay_sec:                ;nested loop subroutine (max delay 3.11s)
       LDI   R20, 255      ;outer loop counter 
 l5:   LDI   R21, 255      ;mid loop counter
 l6:   LDI   R22, 20       ;inner loop counter to give 0.25s delay
