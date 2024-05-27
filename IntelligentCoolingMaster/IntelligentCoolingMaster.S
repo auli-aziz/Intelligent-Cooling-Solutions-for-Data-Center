@@ -84,9 +84,9 @@ LED_COLD:
       RJMP  CONTINUE
       ;--------------------------------------------------------
 CONTINUE:
-      CPI   R16, 0
+      CPI   R16, 1
       BREQ  blink
-      RCALL delay_2s        ;delay
+cont: RCALL delay_2s        ;delay
       RJMP  agn             ;repeat transmission
 ;=================================================================
 blink:
@@ -111,8 +111,8 @@ blink:
       CBI   PORTD, 2
       RCALL delay_timer1
       SBI   PORTD, 2
-      SUBI  R16, 1
-      RET
+      MOV   R16, 0
+      RJMP  cont
 ;=================================================================
 delay_20ms:             ;delay 20ms
     LDI   R21, 255      ;LDI 255 into R21
