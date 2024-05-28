@@ -1,3 +1,6 @@
+;-------------------------------------------------
+; Intelligent Cooling Solutions for Data Centers
+;-------------------------------------------------
 #define __SFR_OFFSET 0x00
 #include "avr/io.h"
 ;------------------------
@@ -195,7 +198,7 @@ w4: SBIS  PINC, 0       ;skip jmp if A0 is 1 --
     SEC                 ;set carry flag (C=1)
     ROL   R18           ;shift in 1 into LSB data register
     RJMP  w5            ;jump & wait for next bit
-skp: CLC                 ;clear carry flag (C=0)
+skp: CLC                ;clear carry flag (C=0)
     ROL   R18           ;shift in 0 into LSB data register
 w5: SBIC  PINC, 0       ;skip jmp if A0 0 --
     RJMP  w5            ;wait for end of data bit pulse
